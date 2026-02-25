@@ -1,0 +1,14 @@
+# Privilege Escalation Detection
+# Detects special privilege assignment and unusual admin activity
+# MITRE ATT&CK: T1068 - Exploitation for Privilege Escalation
+
+index=main source="WinEventLog:Security" (EventCode=4672 OR EventCode=4673)
+| eval event_type=case(
+    EventCode=4672, "Special Privileges Assigned",
+    EventCode=4673, "Privileged Service Called"
+  )
+| stats count by user, src_ip, event_type, _time
+| where count > 3
+| eval severity="HIGH"
+| table _time, user, src_ip, event_type, count, severity
+| sort -count

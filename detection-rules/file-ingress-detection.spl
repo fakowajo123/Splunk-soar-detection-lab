@@ -1,0 +1,14 @@
+# File Ingress / Data Exfiltration Detection
+# Detects suspicious file creation or movement events
+# MITRE ATT&CK: T1041 - Exfiltration Over C2 Channel
+
+index=main source="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=11
+| eval file_path=TargetFilename
+| where match(file_path, "(?i)(temp|appdata|downloads|public)")
+| eval suspicious=case(
+    match(file_path, "(?i)\.(exe|bat|ps1|vbs|js)$"), "HIGH",
+    match(file_path, "(?i)\.(zip|rar|7z)$"), "MEDIUM",
+    true(), "LOW"
+  )
+| table _time, Computer, file_path, suspicious, MD5, SHA256
+| sort -_time

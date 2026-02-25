@@ -1,0 +1,79 @@
+<Sysmon schemaversion="4.82">
+  <!-- Cloud SOC Automation Project - Sysmon Configuration -->
+  <!-- Author: Oluwabukunmi Fakowajo | Kingston University London -->
+  
+  <HashAlgorithms>MD5,SHA256,IMPHASH</HashAlgorithms>
+  
+  <EventFiltering>
+
+    <!-- Event ID 1: Process Creation -->
+    <ProcessCreate onmatch="include">
+      <!-- Detect suspicious processes spawned from Office apps or browsers -->
+      <ParentImage condition="contains any">winword.exe;excel.exe;powerpnt.exe;outlook.exe;chrome.exe;firefox.exe</ParentImage>
+      <!-- Detect scripting engines -->
+      <Image condition="contains any">cmd.exe;powershell.exe;wscript.exe;cscript.exe;mshta.exe;rundll32.exe</Image>
+    </ProcessCreate>
+
+    <!-- Event ID 3: Network Connection -->
+    <NetworkConnect onmatch="include">
+      <!-- Detect outbound connections on unusual ports -->
+      <DestinationPort condition="is">4444</DestinationPort>
+      <DestinationPort condition="is">1234</DestinationPort>
+      <DestinationPort condition="is">8080</DestinationPort>
+    </NetworkConnect>
+
+    <!-- Event ID 5: Process Terminated -->
+    <ProcessTerminate onmatch="include">
+      <Image condition="contains">antivirus</Image>
+      <Image condition="contains">defender</Image>
+    </ProcessTerminate>
+
+    <!-- Event ID 7: Image Loaded (DLL) -->
+    <ImageLoad onmatch="include">
+      <Signed condition="is">false</Signed>
+    </ImageLoad>
+
+    <!-- Event ID 8: CreateRemoteThread -->
+    <CreateRemoteThread onmatch="include">
+      <TargetImage condition="contains any">lsass.exe;winlogon.exe;svchost.exe</TargetImage>
+    </CreateRemoteThread>
+
+    <!-- Event ID 10: Process Access -->
+    <ProcessAccess onmatch="include">
+      <!-- Detect credential dumping attempts -->
+      <TargetImage condition="contains">lsass.exe</TargetImage>
+    </ProcessAccess>
+
+    <!-- Event ID 11: File Creation -->
+    <FileCreate onmatch="include">
+      <!-- Detect files created in suspicious locations -->
+      <TargetFilename condition="contains any">
+        \Temp\;
+        \AppData\;
+        \Downloads\;
+        \Public\;
+        C:\Windows\Temp\
+      </TargetFilename>
+      <!-- Detect suspicious file extensions -->
+      <TargetFilename condition="end with any">.exe;.bat;.ps1;.vbs;.js;.dll</TargetFilename>
+    </FileCreate>
+
+    <!-- Event ID 12/13/14: Registry Events -->
+    <RegistryEvent onmatch="include">
+      <!-- Detect persistence via registry run keys -->
+      <TargetObject condition="contains any">
+        CurrentVersion\Run;
+        CurrentVersion\RunOnce;
+        CurrentVersion\RunServices
+      </TargetObject>
+    </RegistryEvent>
+
+    <!-- Event ID 22: DNS Query -->
+    <DnsQuery onmatch="include">
+      <!-- Log all DNS queries for threat intelligence correlation -->
+      <QueryName condition="contains">.onion</QueryName>
+      <QueryName condition="contains">.xyz</QueryName>
+    </DnsQuery>
+
+  </EventFiltering>
+</Sysmon>

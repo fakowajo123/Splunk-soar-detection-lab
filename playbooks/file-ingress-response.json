@@ -1,0 +1,54 @@
+{
+  "name": "File Ingress Response Playbook",
+  "description": "Automated response for suspicious file creation or data exfiltration events. Triggered by Splunk Sysmon EventCode 11 alert. Hashes file, checks VirusTotal, quarantines if malicious, notifies analyst.",
+  "mitre_technique": "T1041",
+  "trigger": "Splunk Webhook Alert (Sysmon EventCode 11 - File Created)",
+  "workflow_steps": [
+    {
+      "step": 1,
+      "node": "Webhook",
+      "description": "Receives file creation alert from Splunk",
+      "inputs": ["file_path", "MD5", "SHA256", "Computer", "timestamp"]
+    },
+    {
+      "step": 2,
+      "node": "Edit Fields",
+      "description": "Normalises file path and hash values"
+    },
+    {
+      "step": 3,
+      "node": "Classifier (JavaScript)",
+      "description": "Classifies file risk based on extension and path",
+      "logic": "if .exe/.ps1/.bat in suspicious path: HIGH, if .zip/.rar: MEDIUM, else: LOW"
+    },
+    {
+      "step": 4,
+      "node": "VirusTotal Hash Check (HTTP Request)",
+      "description": "Submits file SHA256 hash to VirusTotal for reputation check",
+      "endpoint": "https://www.virustotal.com/api/v3/files/{{SHA256}}"
+    },
+    {
+      "step": 5,
+      "node": "Switch (IF Node)",
+      "description": "Routes based on VirusTotal malicious score"
+    },
+    {
+      "step": 6,
+      "node": "Quarantine File (SSH Command)",
+      "description": "Moves file to quarantine directory on affected host",
+      "command": "Move-Item -Path '{{file_path}}' -Destination 'C:\\Quarantine\\{{filename}}'"
+    },
+    {
+      "step": 7,
+      "node": "Slack Notification",
+      "description": "Sends enriched alert with file details and response outcome",
+      "message_fields": ["file_path", "SHA256", "vt_score", "quarantine_status", "Computer", "timestamp"]
+    }
+  ],
+  "response_actions": [
+    "File hash checked against VirusTotal",
+    "Malicious file quarantined",
+    "Affected host flagged for review",
+    "SOC analyst notified via Slack"
+  ]
+}

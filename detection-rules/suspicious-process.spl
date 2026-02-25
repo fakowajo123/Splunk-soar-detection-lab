@@ -1,0 +1,17 @@
+# Suspicious Process Execution Detection
+# Detects unusual process execution patterns via Sysmon
+# MITRE ATT&CK: T1059 - Command and Scripting Interpreter
+
+index=main source="XmlWinEventLog:Microsoft-Windows-Sysmon/Operational" EventCode=1
+| eval suspicious_parent=case(
+    match(ParentImage, "(?i)(winword|excel|powerpnt|outlook|chrome|firefox)"), "YES",
+    true(), "NO"
+  )
+| eval suspicious_process=case(
+    match(Image, "(?i)(cmd\.exe|powershell\.exe|wscript\.exe|cscript\.exe|mshta\.exe|rundll32\.exe)"), "YES",
+    true(), "NO"
+  )
+| where suspicious_parent="YES" AND suspicious_process="YES"
+| eval severity="HIGH"
+| table _time, Computer, ParentImage, Image, CommandLine, severity
+| sort -_time

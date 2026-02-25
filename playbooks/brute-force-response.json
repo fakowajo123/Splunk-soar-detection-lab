@@ -1,0 +1,60 @@
+{
+  "name": "Brute Force Response Playbook",
+  "description": "Automated response workflow for brute force attack detection. Triggered by Splunk webhook alert. Classifies severity, blocks source IP, disables compromised account, enriches with threat intelligence, and notifies SOC analyst via Slack.",
+  "mitre_technique": "T1110",
+  "trigger": "Splunk Webhook Alert (EventCode 4625 threshold exceeded)",
+  "workflow_steps": [
+    {
+      "step": 1,
+      "node": "Webhook",
+      "description": "Receives alert payload from Splunk via HTTP POST",
+      "inputs": ["src_ip", "user", "count", "alert_type", "timestamp"]
+    },
+    {
+      "step": 2,
+      "node": "Edit Fields",
+      "description": "Normalises and parses incoming alert data into structured fields"
+    },
+    {
+      "step": 3,
+      "node": "Classifier (JavaScript)",
+      "description": "Classifies alert severity based on failed login count",
+      "logic": "if count > 20: HIGH, if count > 10: MEDIUM, else: LOW"
+    },
+    {
+      "step": 4,
+      "node": "Switch (IF Node)",
+      "description": "Routes workflow based on alert type and severity"
+    },
+    {
+      "step": 5,
+      "node": "Block IP (SSH Command)",
+      "description": "Executes firewall rule to block source IP on Windows host via remote command",
+      "command": "netsh advfirewall firewall add rule name='BLOCK_{{src_ip}}' dir=in action=block remoteip={{src_ip}}"
+    },
+    {
+      "step": 6,
+      "node": "Disable Account (PowerShell)",
+      "description": "Disables compromised Active Directory account via PowerShell",
+      "command": "Disable-ADAccount -Identity {{user}}"
+    },
+    {
+      "step": 7,
+      "node": "VirusTotal Enrichment (HTTP Request)",
+      "description": "Queries VirusTotal API to check reputation of source IP",
+      "endpoint": "https://www.virustotal.com/api/v3/ip_addresses/{{src_ip}}"
+    },
+    {
+      "step": 8,
+      "node": "Slack Notification",
+      "description": "Sends enriched alert to SOC analyst Slack channel",
+      "message_fields": ["alert_type", "src_ip", "user", "count", "severity", "vt_score", "response_actions", "timestamp"]
+    }
+  ],
+  "response_actions": [
+    "Source IP blocked at firewall",
+    "Compromised AD account disabled",
+    "IOC enriched via VirusTotal",
+    "SOC analyst notified via Slack"
+  ]
+}

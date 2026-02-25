@@ -1,0 +1,43 @@
+{
+  "name": "Privilege Escalation Response Playbook",
+  "description": "Automated response for privilege escalation events detected via Sysmon and Windows Security logs. Isolates affected host and escalates to analyst.",
+  "mitre_technique": "T1068",
+  "trigger": "Splunk Webhook Alert (EventCode 4672/4673 threshold exceeded)",
+  "workflow_steps": [
+    {
+      "step": 1,
+      "node": "Webhook",
+      "description": "Receives privilege escalation alert from Splunk",
+      "inputs": ["user", "src_ip", "event_type", "count", "timestamp"]
+    },
+    {
+      "step": 2,
+      "node": "Edit Fields",
+      "description": "Normalises alert fields and sets severity to HIGH"
+    },
+    {
+      "step": 3,
+      "node": "Isolate Host (SSH Command)",
+      "description": "Blocks all inbound and outbound traffic on affected host",
+      "command": "netsh advfirewall set allprofiles firewallpolicy blockinbound,blockoutbound"
+    },
+    {
+      "step": 4,
+      "node": "Disable Account (PowerShell)",
+      "description": "Immediately disables the escalated account in Active Directory",
+      "command": "Disable-ADAccount -Identity {{user}}"
+    },
+    {
+      "step": 5,
+      "node": "Slack Escalation",
+      "description": "Sends HIGH severity alert to SOC channel with immediate escalation flag",
+      "message_fields": ["user", "src_ip", "event_type", "count", "severity", "host_isolated", "timestamp"]
+    }
+  ],
+  "response_actions": [
+    "Affected host isolated from network",
+    "Escalated AD account disabled",
+    "HIGH severity escalation sent to SOC analyst",
+    "Incident ticket created for manual investigation"
+  ]
+}
